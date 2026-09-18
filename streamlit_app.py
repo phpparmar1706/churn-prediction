@@ -1,46 +1,55 @@
 import streamlit as st
-import requests
+import joblib
+import pandas as pd
+import os
 
 st.title("Churn Prediction System")
 
+# Load model and scaler
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+model = joblib.load(os.path.join(BASE_DIR, "backend", "model.pkl"))
+scaler = joblib.load(os.path.join(BASE_DIR, "backend", "scaler.pkl"))
 
 # User Inputs
 CreditScore = st.number_input("CreditScore", min_value=0)
-
-Age = st.number_input("Age")
-
-Tenure = st.number_input("Tenure")
-
-Balance = st.number_input("Balance")
-
-NumOfProducts = st.number_input("NumOfProducts")
-
-HasCrCard = st.number_input("HasCrCard")
-
-IsActiveMember = st.number_input("IsActiveMember")
-
-EstimatedSalary = st.number_input("EstimatedSalary")
+Age = st.number_input("Age", min_value=0)
+Tenure = st.number_input("Tenure", min_value=0)
+Balance = st.number_input("Balance", min_value=0.0)
+NumOfProducts = st.number_input("NumOfProducts", min_value=0)
+HasCrCard = st.number_input("HasCrCard", min_value=0, max_value=1)
+IsActiveMember = st.number_input("IsActiveMember", min_value=0, max_value=1)
+EstimatedSalary = st.number_input("EstimatedSalary", min_value=0.0)
 
 # Predict Button
 if st.button("Predict Churn"):
 
-    payload = {
-        "CreditScore": CreditScore,
-        "Age": Age,
-        "Tenure": Tenure,
-        "Balance": Balance,
-        "NumOfProducts": NumOfProducts,
-        "HasCrCard": HasCrCard,
-        "IsActiveMember": IsActiveMember,
-        "EstimatedSalary": EstimatedSalary,
-       
-    }
+    input_data = pd.DataFrame(
+        [
+            {
+                "CreditScore": CreditScore,
+                "Age": Age,
+                "Tenure": Tenure,
+                "Balance": Balance,
+                "NumOfProducts": NumOfProducts,
+                "HasCrCard": HasCrCard,
+                "IsActiveMember": IsActiveMember,
+                "EstimatedSalary": EstimatedSalary,
+            }
+        ]
+    )
 
-    # API Call
-    response = requests.post("http://127.0.0.1:8000/predict", json=payload)
+    # Scale input
+    scaled_data = scaler.transform(input_data)
 
-    result = response.json()
+    # Prediction
+    prediction = model.predict(scaled_data)[0]
 
-st.subheader(f"Prediction: {result['churn_prediction']}")
+    # Probability
+    probability = model.predict_proba(scaled_data)[0][1]
 
-st.write(f"Churn Probability: {result['churn_probability']}")
+    # Result
+    result = "Churn" if prediction == 1 else "Not Churn"
+
+    st.subheader(f"Prediction: {result}")
+    st.write(f"Churn Probability: {round(float(probability), 2)}")
